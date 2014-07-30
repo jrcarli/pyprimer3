@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+{% block body %}
+    <form action="{{ url_for('upload_file') }}" method=post enctype=multipart/form-data>
+        <p><input type=file name=file><br/><br/>
+        <hr/>
+        <label><b>Genome Assembly</b></label><br/>
+        <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
+        <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
+        <!--<img src="{{ url_for('static', filename='favicon.ico') }}" onclick=fade() /><br/>
+        <div class=options style="display:none;">-->
+        <hr/>
+        <label><b>Spreadsheet Columns</b></label>
+        <table>
+            <tr>
+                <td>Chromosome Column Name:</td>
+                <td><input type=text name=chromcol value="#CHROM"/></td>
+            </tr>
+            <tr>
+                <td>Position Column Name:</td>
+                <td><input type=text name=poscol value="POS"/></td>
+            </tr>
+            <tr>
+                <td>Reference Column Name:</td>
+                <td><input type=text name=refcol value="REF"/></tr>
+            </tr>
+        </table>
+        <hr/>
+        <label><b>Sequence Options</b></label>
+        <table>
+            <tr>
+                <td>Bracketed Sequence Length</td>
+                <td><input type=text name=bracketlen value="500"/></td>
+            </tr>
+            <tr>
+                <td>Primer3 Sequence Length</td>
+                <td><input type=text name=primerlen value="200-500"/></td>
+            </tr>
+        </table>
+        <hr/>
+        <!--</div>-->
+        <input type=submit value="Get Primers">
+    </form>
+{% endblock %}

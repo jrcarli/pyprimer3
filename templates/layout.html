@@ -1,0 +1,20 @@
+<!doctype html>
+<title>Primers</title>
+<script src="/static/jquery-2.1.1.min.js"></script>
+<script src="/static/progressbar.min.js"></script>
+<script src="/static/status.js"></script>
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='style.css') }}">
+<link rel=stylesheet type=text/css href="{{ url_for('static', filename='progressbar.css') }}">
+<link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+<body>
+<div class=page>
+    <h1>Primer3 Domination</h1>
+    {% for message in get_flashed_messages() %}
+        <div class=flash>{{ message }}</div>
+    {% endfor %}
+    <div class=ajaxflash style="display:none;"></div>
+    <div class=totalRows></div>
+    <div class=curRow></div>
+    {% block body %}{% endblock %}
+</div>
+</body>
