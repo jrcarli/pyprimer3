@@ -3,6 +3,15 @@ Module to parse input and select form input.
 Returns a dictionary of default values.
 """
 
+__author__ = "Joe Carli"
+__copyright__ = "Copyright 2014"
+__credits__ = ["Joe Carli"]
+__license__ = "GPL"
+__version__ = "0.0.1"
+__maintainer__ = "Joe Carli"
+__email__ = "jrcarli@gmail.com"
+__status__ = "Development"
+
 def getFormDefaults(form):
     """Expects form is already a BeautifulSoup tag"""
     d = dict()

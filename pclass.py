@@ -1,6 +1,16 @@
 """
 Primer class
+TODO: DOCUMENT
 """
+
+__author__ = "Joe Carli"
+__copyright__ = "Copyright 2014"
+__credits__ = ["Joe Carli"]
+__license__ = "GPL"
+__version__ = "0.0.1"
+__maintainer__ = "Joe Carli"
+__email__ = "jrcarli@gmail.com"
+__status__ = "Development"
 
 class Primer(object):
     def __init__(self,chrom,pos,fSeq,rSeq,size):

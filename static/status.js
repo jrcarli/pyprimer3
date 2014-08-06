@@ -52,7 +52,7 @@ function getStatus() {
                 txt = txt + uuid + ".csv<br/><br/>";
                 txt = txt + "Return <a href='/'>home</a><br/>";
                 statusDiv.html(txt)
-                setTimeout(function(){window.location="/getfile/"+uuid;},2000);
+                setTimeout(function(){window.location="/getfile/"+uuid+".csv";},2000);
             }
         }
     }).fail(function() {

@@ -22,17 +22,27 @@ from werkzeug.utils import secure_filename
 from parseform import getFormDefaults
 from decorators import async
 from pclass import Primer
+from appsecret import SECRET_KEY
+
+__author__ = "Joe Carli"
+__copyright__ = "Copyright 2014"
+__credits__ = ["Joe Carli"]
+__license__ = "GPL"
+__version__ = "0.0.1"
+__maintainer__ = "Joe Carli"
+__email__ = "jrcarli@gmail.com"
+__status__ = "Development"
 
 ALLOWED_EXTENSIONS = set(['txt','csv','xls','xlsx'])
 
 app = Flask(__name__)
 app.config.update(dict(
-    SECRET_KEY='\xde\x96\x897\xb5\xdfF\x1d\x86h;y\xb6`q1\xedx\xaa|5\x91\x14U',
-    DEBUG=True,
-    UPLOAD_FOLDER = "userfiles",
+    SECRET_KEY=SECRET_KEY,
+    DEBUG=False,
+    UPLOAD_FOLDER = "/tmp",
     GB_URL = "http://genome.ucsc.edu",
     P3_URL = "http://bioinfo.ut.ee",
-    GB = 'UCSC',
+    GB = '',
     STATUS='ONLINE',
     ))
 
@@ -285,15 +295,67 @@ def processRows(sessionId,rows,genomeFile,
     if app.config['STATUS'] == 'OFFLINE':
         return getDummyPrimers(sessionId)
 
-    for row in rows:
+    for idx,row in enumerate(rows):
         if chromcol not in row or \
             poscol not in row or \
             refcol not in row:
             print "~"*20+" MISSING COL IN ROW "+"~"*20
             print row
-        chrom = "chr%d"%(int(row[chromcol]))
+            warn = ("Error! Row %d could not be parsed. Skipping."%(idx+1))
+            _warnings[sessionId].append(warn)
+            _sessionPrimers[sessionId].append(
+                Primer('ERROR',-1,'ERROR','ERROR',-1))
+            continue
+         
         pos = row[poscol]
         ref = row[refcol]
+        pos_int = 0
+        ref_char = '' 
+        chrom = "chr%s"%(row[chromcol])
+        warn = ("Error! Found '%s' in %s column of row %d; expected "
+            "1-22, X, or Y. Skipping."%(row[chromcol],chromcol,idx+1))
+        # assume that chrom is 1-22, X or Y
+        try:
+            chrom_int = int(row[chromcol])
+            if chrom_int < 1 or chrom_int > 22:
+                print warn
+                _warnings[sessionId].append(warn)
+                _sessionPrimers[sessionId].append(
+                    Primer('ERROR',-1,'ERROR','ERROR',-1))
+                continue
+        except:
+            chrom_str = row[chromcol].lower()
+            if chrom_str!='x' and chrom_str!='y':
+                print warn    
+                _warnings[sessionId].append(warn)
+                _sessionPrimers[sessionId].append(
+                    Primer('ERROR',-1,'ERROR','ERROR',-1))
+                continue
+
+        # test that pos is an int
+        try:
+            pos_int = int(pos)
+        except:
+            warn = ("Error! Found '%s' in %s column of row %d; expected "
+                "an integer. Skipping."%(pos,poscol,idx+1))
+            print warn
+            _warnings[sessionId].append(warn)
+            _sessionPrimers[sessionId].append(
+                Primer('ERROR',-1,'ERROR','ERROR',-1))
+            continue
+
+        # test that ref is a single character in A,C,T,G
+        lowerRef = ref.lower()
+        if len(lowerRef) > 1 or \
+            (lowerRef!='a' and lowerRef!='c' 
+            and lowerRef!='t' and lowerRef!='g'):
+            warn = ("Error! Found '%s' in %s column of row %d; expected "
+                "A, C, T, or G. Skipping."%(ref,refcol,idx+1))
+            _warnings[sessionId].append(warn)
+            _sessionPrimers[sessionId].append(
+                Primer('ERROR',-1,'ERROR','ERROR',-1))
+            continue
+
         # 0 indexed so get [pos-1:pos] for the reference
         # treat pos as a str that may have .0 if it came from an excel file
         # int(float('10.0')) will return 10
@@ -307,6 +369,7 @@ def processRows(sessionId,rows,genomeFile,
                 left=(int(pos)-1),right=(int(pos)),
                 leftPad=0,rightPad=0)
         else:
+            genome = loadGenome(genomeFile)
             genomeRef = getSequence(genome,chrom,int(pos)-1,int(pos))
         if genomeRef != ref:
             warn = ("Warning! Reference '%s' for chromosome %s, "
@@ -314,8 +377,9 @@ def processRows(sessionId,rows,genomeFile,
                 %(ref,chrom,pos,genomeRef))
             print warn
             _warnings[sessionId].append(warn)
-        seqStart = int(pos) - 501 # TODO: make this a param
-        seqEnd = seqStart + 1001 # TODO: make this a param
+
+        seqStart = int(pos) - bracketlen - 1 
+        seqEnd = seqStart + bracketlen + bracketlen + 1 
         # UCSC defaults to all upper case
         if app.config['GB'] == 'UCSC':
             #seq = gb_getSequence(hgsid,db,chrom,seqStart,seqEnd)
@@ -363,11 +427,12 @@ def allowed_file(filename):
 @app.route('/getfile/<filename>')
 def get_file(filename):
     global _sessionPrimers
-    if filename != session['uuid']:
-        flask("Error: No session ID present")
-        return redirect(url_for('upload_file'))
+    #expectedFilename = ".".join([session['uuid'],'csv'])
+    #if filename != expectedFilename:
+    #    flash("Error: Bad session ID.")
+    #    return redirect(url_for('upload_file'))
     # make sure to create the filename locally so we can end the session
-    filename = filename + ".csv"
+    #filename = filename + ".csv"
     path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
     primersToCsv(_sessionPrimers[session['uuid']],path)
     endSession()
@@ -518,7 +583,7 @@ def testGetSequence(genomeFilePath):
 
 if __name__ == "__main__":
     if True:
-        app.run(host='0.0.0.0')
+        app.run(host='0.0.0.0',port=80)
     else:
         genomePath = 'genomes'
         genomeFile = 'hg19.2bit'
