@@ -1,9 +1,7 @@
+"""Helper functions for interacting with UCSC's Genome Browser."""
+
 import requests
 from bs4 import BeautifulSoup
-
-"""
-Helper functions for interacting with UCSC's Genome Browser.
-"""
 
 __author__ = "Joe Carli"
 __copyright__ = "Copyright 2014"

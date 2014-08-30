@@ -1,3 +1,9 @@
+"""Common decorators for the pyprimer3 Flask application.
+
+Thanks to Miguel Grinberg's Flask Mega-Tutorial.
+http://blog.miguelgrinberg.com
+"""
+
 from threading import Thread
 
 __author__ = "Joe Carli"

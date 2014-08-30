@@ -1,3 +1,9 @@
+"""File utilities for the pyprimer3 Flask app.
+
+Handles reading CSV and Excel files into dictionaries.
+Includes a routine to write Primer data to CSV.
+"""
+
 import csv
 import xlrd
 

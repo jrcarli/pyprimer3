@@ -1,13 +1,14 @@
+"""Helper functions to work with Primer3.
+
+Interacts with Primer3 at http://bioinfo.ut.ee.
+"""
+
 import requests
 from bs4 import BeautifulSoup
 
 # local modules
-from parseform import getFormDefaults
+import parseform 
 from pclass import Primer
-
-"""
-Helper functions to work with Primer3.
-"""
 
 __author__ = "Joe Carli"
 __copyright__ = "Copyright 2014"
@@ -35,7 +36,7 @@ def getPrimer(bSeq,chrom='UNKNOWN',pos=-1,primerlen='200-500'):
         print "getPrimer(): Unable to find form in html"
         return None
     form = forms[0]
-    params = getFormDefaults(form)
+    params = parseform.getFormDefaults(form)
     
     url = "/".join([P3_URL,"cgi-bin",
         "primer3-0.4.0","primer3_results.cgi"])

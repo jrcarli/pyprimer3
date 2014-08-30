@@ -1,10 +1,14 @@
+"""Testing functions to verify local .2bit file usage is equivalent
+to UCSC Genome Browser usage.
+"""
+
 import uuid
 
 from pclass import Primer
-from sequenceutils import loadGenome, getSequence, bracketSequence
-from fileutils import readCsv, readExcel, primersToCsv
-from genomebrowser import gb_getSessionId, gb_getSequence
-from webprimer3 import getPrimer
+import sequenceutils
+import fileutils
+import genomebrowser
+import webprimer3
 
 __author__ = "Joe Carli"
 __copyright__ = "Copyright 2014"
@@ -21,8 +25,8 @@ def testGetSequence(genomeFilePath):
     seqlen = 1
     seqStart = int(seq) - seqlen - 500
     seqEnd = seqStart + seqlen + 1000
-    genome = loadGenome(genomeFilePath)
-    seqA = getSequence(genome,chrom,seqStart,seqEnd)
+    genome = sequenceutils.loadGenome(genomeFilePath)
+    seqA = sequenceutils.getSequence(genome,chrom,seqStart,seqEnd)
     seqA = seqA.upper()
     print seqA
 
@@ -30,12 +34,12 @@ def testGetSequence(genomeFilePath):
 
     # get sesion id
     print "Getting sesion id ..."
-    hgsid = gb_getSessionId()
+    hgsid = genomebrowser.gb_getSessionId()
     print hgsid
     if hgsid == "":
         print "blank hgsid. quitting"
         sys.exit(1)
-    seqB = gb_getSequence(hgsid)
+    seqB = genomebrowser.gb_getSequence(hgsid)
     print seqB
 
     print "~"*50
@@ -45,15 +49,15 @@ def testGetSequence(genomeFilePath):
     else:
         print "Sequences do not match :("
 
-    bseqA = bracketSequence(seqA)
-    bseqB = bracketSequence(seqB)
+    bseqA = sequenceutils.bracketSequence(seqA)
+    bseqB = sequenceutils.bracketSequence(seqB)
     
     if bseqA != bseqB:
         print "Bracketed sequences do not match!"
         sys.exit(1)
 
-    primerA = getPrimer(bseqA,chrom,int(seq))
-    primerB = getPrimer(bseqB,chrom,int(seq))
+    primerA = webprimer3.getPrimer(bseqA,chrom,int(seq))
+    primerB = webprimer3.getPrimer(bseqB,chrom,int(seq))
    
     if primerA.fSeq != primerB.fSeq \
         or primerA.rSeq != primerB.rSeq \
@@ -71,7 +75,7 @@ def testGetSequence(genomeFilePath):
     primerList = [primerA,primerB]
 
     outfile = "/tmp/"+str(uuid.uuid4())+".csv"
-    primersToCsv(primerList,outfile)
+    fileutils.primersToCsv(primerList,outfile)
     print "Wrote %s"%(outfile)
 
 if __name__=="__main__":

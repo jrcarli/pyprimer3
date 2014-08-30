@@ -1,7 +1,4 @@
-"""
-Module to parse input and select form input.
-Returns a dictionary of default values.
-"""
+"""Helper to extract default values from an HTML form."""
 
 __author__ = "Joe Carli"
 __copyright__ = "Copyright 2014"
@@ -13,7 +10,10 @@ __email__ = "jrcarli@gmail.com"
 __status__ = "Development"
 
 def getFormDefaults(form):
-    """Expects form is already a BeautifulSoup tag"""
+    """Return a form's input field names and default values as a dictionary.
+
+    Input (form) must be a BeautifulSoup tag.
+    """
     d = dict()
     inputs = form.find_all('input')
     for i in inputs:
@@ -34,5 +34,4 @@ def getFormDefaults(form):
             if selected != '':
                 d[name] = o.value
                 break
-
     return d

@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Flask application for primer3 automation."""
+
 # common
 import os
 import sys
@@ -12,13 +14,13 @@ from flask import (Flask, request, render_template, redirect, url_for,
 from werkzeug.utils import secure_filename
 
 # local modules
-from decorators import async
-from appsecret import SECRET_KEY
+import decorators 
+import appsecret 
+import sequenceutils 
+import fileutils 
+import genomebrowser 
+import webprimer3 
 from pclass import Primer
-from sequenceutils import loadGenome, getSequence, bracketSequence
-from fileutils import readCsv, readExcel, primersToCsv
-from genomebrowser import gb_getSessionId, gb_getSequence
-from webprimer3 import getPrimer
 
 __author__ = "Joe Carli"
 __copyright__ = "Copyright 2014"
@@ -33,7 +35,7 @@ ALLOWED_EXTENSIONS = set(['txt','csv','xls','xlsx'])
 
 app = Flask(__name__)
 app.config.update(dict(
-    SECRET_KEY=SECRET_KEY,
+    SECRET_KEY=appsecret.SECRET_KEY,
     DEBUG=True,
     UPLOAD_FOLDER = "/tmp",
     GB = '',
@@ -67,7 +69,7 @@ def endSession():
     _warnings.pop(session['uuid'],None)
     session.pop('uuid', None)
 
-@async
+@decorators.async
 def processRows(sessionId,rows,genomeFile,
     db='hg38',
     chromcol='#CHROM',poscol='POS',refcol='REF',
@@ -139,21 +141,18 @@ def processRows(sessionId,rows,genomeFile,
                 Primer('ERROR',-1,'ERROR','ERROR',-1))
             continue
 
-        # 0 indexed so get [pos-1:pos] for the reference
-        # treat pos as a str that may have .0 if it came from an excel file
-        # int(float('10.0')) will return 10
-        # int('10.0') will produce an error
-        #genomeRef = getSequence(genome,chrom,int(float(pos))-1,int(float(pos)))
         hgsid = ''
         if app.config['GB'] == 'UCSC':
-            hgsid = gb_getSessionId()
-            #genomeRef = gb_getSequence(hgsid,db,chrom,int(pos)-1,int(pos))
-            genomeRef = gb_getSequence(hgsid,db=db,chrom=chrom,
-                left=(int(pos)-1),right=(int(pos)),
-                leftPad=0,rightPad=0)
+            hgsid = genomebrowser.gb_getSessionId()
+            genomeRef = genomebrowser.gb_getSequence(hgsid, db=db, chrom=chrom,
+                                                     left=(int(pos)-1),
+                                                     right=(int(pos)),
+                                                     leftPad=0,
+                                                     rightPad=0)
         else:
-            genome = loadGenome(genomeFile)
-            genomeRef = getSequence(genome,chrom,int(pos)-1,int(pos))
+            genome = sequenceutils.loadGenome(genomeFile)
+            genomeRef = sequenceutils.getSequence(genome, chrom,
+                                                  int(pos)-1, int(pos))
         if genomeRef != ref:
             warn = ("Warning! Reference '%s' for chromosome %s, "
                 "position %s was found to be '%s' in the genome file."
@@ -165,15 +164,15 @@ def processRows(sessionId,rows,genomeFile,
         seqEnd = seqStart + bracketlen + bracketlen + 1 
         # UCSC defaults to all upper case
         if app.config['GB'] == 'UCSC':
-            #seq = gb_getSequence(hgsid,db,chrom,seqStart,seqEnd)
-            seq = gb_getSequence(hgsid,db=db,chrom=chrom,
-                left=(int(pos)-1),right=(int(pos)),
-                leftPad=500,rightPad=500)
-
+            seq = genomebrowser.gb_getSequence(hgsid, db=db, chrom=chrom,
+                                               left=(int(pos)-1),
+                                               right=(int(pos)),
+                                               leftPad=500,
+                                               rightPad=500)
         else:
-            seq = getSequence(genome,chrom,seqStart,seqEnd)
-        bseq = bracketSequence(seq).upper() 
-        primer = getPrimer(bseq,chrom,int(pos),primerlen)
+            seq = sequenceutils.getSequence(genome, chrom, seqStart, seqEnd)
+        bseq = sequenceutils.bracketSequence(seq).upper() 
+        primer = webprimer3.getPrimer(bseq, chrom, int(pos), primerlen)
         if primer == None:
             print "getPrimer returned None!!"
         _sessionPrimers[sessionId].append(primer)
@@ -217,7 +216,7 @@ def get_file(filename):
     # make sure to create the filename locally so we can end the session
     #filename = filename + ".csv"
     path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
-    primersToCsv(_sessionPrimers[session['uuid']],path)
+    fileutils.primersToCsv(_sessionPrimers[session['uuid']],path)
     endSession()
     return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
 # end of get_file()
@@ -278,9 +277,9 @@ def upload_file():
             createSession()
             session['filename'] = filename
             if filename[-3:] == 'csv':
-                rows = readCsv(path)
+                rows = fileutils.readCsv(path)
             else:
-                rows = readExcel(path)
+                rows = fileutils.readExcel(path)
             session['totalRows'] = len(rows)
             genomePath = "genomes"
             if session['db'] == 'hg19':
