@@ -26,7 +26,13 @@ class SpliceSite(object):
         else:
             self.foundIntronBoundary = True
 
-    def __str__(self, delim=','):
+    def getSpliceSite(self):
+        """Return a tuple of (position,base,score)"""
+        position = self.start + len(self.intron) - 1
+        base = self.intron[-1]
+        return (position, base, self.score)
+
+    def pprint(self, delim=","):
         """Create a string representation of a SpliceSite.
 
         A SpliceSite (prediction) string looks like:
@@ -45,3 +51,6 @@ class SpliceSite(object):
                self.exon)
              )
         return row
+
+    def __str__(self):
+        return self.pprint() 
