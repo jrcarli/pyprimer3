@@ -78,6 +78,11 @@ def testGetSequence(genomeFilePath):
     fileutils.primersToCsv(primerList,outfile)
     print "Wrote %s"%(outfile)
 
+def getSequence():
+    with open('sequence.txt','rb') as f:
+        seq = f.read()
+    return seq
+
 if __name__=="__main__":
     genomePath = 'genomes'
     genomeFile = 'hg19.2bit'

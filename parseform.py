@@ -18,6 +18,9 @@ def getFormDefaults(form):
     inputs = form.find_all('input')
     for i in inputs:
         t = i.get('type')
+        # Assume 'type' is text if not specified in input tag
+        if not t:
+            t = 'text'
         if t.lower() == 'text':
             d[i.get('name')] = i.get('value')
         elif t.lower() == 'checkbox':
