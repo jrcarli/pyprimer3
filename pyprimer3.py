@@ -18,6 +18,7 @@ import decorators
 import appsecret 
 import sequenceutils 
 import fileutils 
+import fruitfly
 import genomebrowser 
 import webprimer3 
 from pclass import Primer
@@ -222,10 +223,140 @@ def get_file(filename):
 # end of get_file()
 
 @app.route('/splicesite', methods=['GET','POST'])
-def spliceSite():
-    flash('Splice site prediction coming soon!')
-    return render_template('index.html')
-# end of spliceSite()
+def splice_site():
+    if request.method == 'POST':
+        session['db'] = 'hg38' # use the latest genome by default
+        if 'db' in request.form:
+            if request.form['db'] == 'hg19':
+                session['db'] = 'hg19'
+            elif request.form['db'] != 'hg38':
+                flash('Unsuported genome option %s. Using hg38.'
+                    %(request.form['session']))
+        else:
+            flash('Genome not specified. Using hg38.')
+
+        # Set up the mutation information for this run 
+        session['chromosome'] = 'chrom1'
+        session['position'] = '1'
+        session['base'] = 'A'
+        if 'chromosome' in request.form and \
+            request.form['chromosome'] != session['chromosome']:
+            session['chromosome'] = request.form['chromosome']
+            flash("Working with chromosome %s"%(session['chromosome']))
+        if 'position' in request.form and \
+            request.form['position'] != session['position']:
+            session['position'] = request.form['position']
+            flash("Working with position %s"%(session['position']))
+        if 'base' in request.form and \
+            request.form['base'] != session['base']:
+            session['base'] = request.form['base']
+            flash("Using %s as reference base"%(session['base']))
+
+        createSession()
+        genomePath = "genomes"
+        if session['db'] == 'hg19':
+            genomeFile = "hg19.2bit"
+        else:
+            session['db'] = 'hg38'
+            genomeFile = "hg38.2bit"
+        genomeFilePath = "/".join([genomePath,genomeFile])
+        #processRows(session['uuid'],rows,genomeFilePath,
+        #    db=session['db'],
+        #    chromcol=session['chromcol'],poscol=session['poscol'],
+        #    refcol=session['refcol'],
+        #    bracketlen=session['bracketlen'],
+        #    primerlen=session['primerlen'])
+        #return render_template('status.html')
+
+        #if app.config['GB'] == 'UCSC':
+        #    seq = genomebrowser.gb_getSequence(hgsid, db=db, chrom=chrom,
+        #                                       left=(int(pos)-1),
+        #                                       right=(int(pos)),
+        #                                       leftPad=500,
+        #                                       rightPad=500)
+        #else:    
+        chrom = "chr%s"%(session['chromosome'])
+        seqStart = int(session['position']) - 501
+        seqEnd = int(session['position']) + 500
+        genome = sequenceutils.loadGenome(genomeFilePath)
+        seq = sequenceutils.getSequence(genome, chrom, seqStart, seqEnd)
+
+        # make a copy of seq but with the base modified at specified position
+        # python doesn't support item assignments w/in strings so build pieces
+        var = seq[0:500]
+        var = var + session['base']
+        var = var + seq[501:]
+
+        expectedSites = fruitfly.getSpliceSitePredictions(seq)
+        variantSites = fruitfly.getSpliceSitePredictions(var)
+
+        expectedList = []
+        variantList = []
+        newList = []
+
+        for ss in expectedSites:
+            expectedList.append(str(ss))
+
+        for ss in variantSites:
+            variantList.append(str(ss)) 
+
+        # List where we will store the SpliceSites to print
+        # These are the sites that are "interesting"
+        printList = []
+
+        for i, variantSite in enumerate(variantSites):
+            (posB,baseB,scoreB) = variantSite.getSpliceSite()
+            foundMatch = False
+            for j, expectedSite in enumerate(expectedSites):
+                (posA,baseA,scoreA) = expectedSite.getSpliceSite()
+                if posA==posB:
+                    foundMatch = True
+                    if scoreA==scoreB:
+                        if baseA != baseB:
+                            flash("Base changed from %s to %s at position %d "
+                                "with score %0.2f\n"%(baseA, baseB, posA, scoreA))
+                    else:
+                        delta = abs(scoreA - scoreB)
+                        if delta >= 0.4:
+                            flash("Score changed by %0.2f from %0.2f to %0.2f "
+                                "at position %d.\n"%(delta, scoreA, scoreB, posA))
+            if not foundMatch:
+
+                if posB >= len(seq):
+                    flash("Oops! Somehow the length of our expected and varied "
+                        "sequences is not equivalent (%d for expected, "
+                        "%d for varied).\n"%(len(seq),len(var)))
+                    break
+                origBase = seq[posB].lower()
+
+                newList.append("New splice site predicted at position %d with score %0.2f. "
+                    "Original base was '%s' and new base is '%s'."
+                    %(posB, scoreB, origBase, baseB))
+
+                printList.append(variantSite)
+
+        #if len(printList) > 0:
+        #    #output = output + "Start\tEnd\tScore\tIntron\t\t\tExon\n"
+        #    for ss in printList:
+        #        output = output + ss.pprint(delim='\t') + "\n"
+        #output = output + "\n" 
+
+        #print "~"*25 + " Expected " + "~"*25
+        #print seq
+        #print "" 
+        #print "~"*25 + " Variant " + "~"*25
+        #print var 
+        #print ""
+        return render_template('splicesite.html',
+                               expectedList=expectedList,
+                               variantList=variantList,
+                               newList=newList,
+                               printList=printList)
+
+    # if not post, return index.html
+    return render_template('index.html')#,primerList=session['primerList'])
+
+# end of splice_site()
 
 @app.route('/', methods=['GET','POST'])
 def upload_file():

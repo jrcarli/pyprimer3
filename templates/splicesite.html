@@ -69,5 +69,31 @@
         <input type=submit value="Get Splice Site Predictions"/>
         </form>
     </div>
+    <div>
+        Expected
+        <ul class=entries>
+        {% for expected in expectedList %} 
+            <li>{{ expected }}</li>
+        {% endfor %}
+        </ul>
+        Variant 
+        <ul class=entries>
+        {% for variant in variantList %} 
+            <li>{{ variant }}</li>
+        {% endfor %}
+       </ul>
+        Comparison
+        <ul class=entries>
+        {% for newItem in newList %}
+            <li>{{ newItem }}</li>
+        {% endfor %}
+        </ul>
+        Start&nbsp;&nbsp;&nbsp;&nbsp;End&nbsp;&nbsp;&nbsp;&nbsp;Score&nbsp;&nbsp;&nbsp;&nbsp;Intron&nbsp;&nbsp;&nbsp;&nbsp;Exon
+        <ul class=entries>
+        {% for printItem in printList %}
+            <li>{{ printItem }}</li>
+        {% endfor %}
+        </ul>
+    </div>
 
 {% endblock %}
