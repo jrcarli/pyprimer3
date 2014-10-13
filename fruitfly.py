@@ -38,31 +38,6 @@ def parseHelper(line,startPos):
             break
     return (value,i+startPos)
 
-def parseIntron(line):
-    """Parse an intron line.
-   
-    Expect input (line) of the form:
-       3    43     0.43     ggtacttctcctatacttt
-
-    Return a tuple of (start,end,score,intron)
-    ex: (int(3), int(43), float(0.43), str('ggtacttctcctatacttt'))
-    """ 
-    (startVal, startEnd) = parseHelper(line, 0)
-    (endVal, startScore) = parseHelper(line, startEnd)
-    (scoreVal, startIntron) = parseHelper(line, startScore)
-    (intronVal, dontcare) = parseHelper(line, startIntron)
-
-    ss = SpliceSite(int(startVal),
-                    int(endVal),
-                    float(scoreVal),
-                    intronVal,
-                    '')
-    return ss
-# end of parseIntron()
-
-def parseExon(line,intron):
-    pass
-
 def getSpliceSitePredictions(seq):
     """seq is a genomic sequence."""
     # What we return
@@ -187,46 +162,5 @@ def getSpliceSitePredictions(seq):
                                              parts[3],
                                              parts[4]))
 
-    return spliceSiteList
-
-    # ignore lines that start with '<','a','c','g', or 't'
-    # lines we care about probably start with one or more spaces
-    #ignoreAlphabet = ['s','<','a','c','g','t']
-    ignoreAlphabet = ['s','<']
-    for i,contents in enumerate(pre.contents):
-        if contents==None or len(contents) <= 0 or contents.string==None:
-            continue
-
-        # skip lines we don't care about
-        # we will want to care about <font> lines
-        #lc = contents.lower()
-        #if lc[0] in ignoreAlphabet:
-        lc = contents.string.lower() 
-
-        if lc[0] in ignoreAlphabet:
-            continue
-
-        if lc[0] in ['a','c','g','t']:
-            if len(lc)==1:
-                #print "NEED TO PROCESS BOUNDARY:\n\t'%s'"%(lc)
-                #continue
-                if len(spliceSiteList) <= 0:
-                    print "ERORR: Found bondary before intron"
-                    break
-                if spliceSiteList[-1].foundIntronBoundary:
-                    spliceSiteList[-1].exon = contents.string
-                else:
-                    spliceSiteList[-1].intron += contents.string
-                    spliceSiteList[-1].foundIntronBoundary = True
-            else:
-                #print "Need to process exon:\n\t'%s'"%(lc)
-                #continue
-                if len(spliceSiteList) <= 0:
-                    print "ERROR: Found exon before intron"
-                spliceSiteList[-1].exon += contents.string
-        else:
-            spliceSite = parseIntron(contents.string)
-            spliceSiteList.append(spliceSite)
-            #print spliceSite
     return spliceSiteList
 # end of getSpliceSitePredictions()

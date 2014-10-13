@@ -21,10 +21,6 @@ class SpliceSite(object):
         self.score = score
         self.intron = intron
         self.exon = exon
-        if self.exon == '':
-            self.foundIntronBoundary = False
-        else:
-            self.foundIntronBoundary = True
 
     def getSpliceSite(self):
         """Return a tuple of (position,base,score)"""
