@@ -118,15 +118,85 @@ def getSpliceSitePredictions(seq):
     if len(preTags) <= 0:
         print "getSpliceSitePredictions(): Failed to find <pre> tags in response"
         return None
-    
+   
     pre = preTags[0]
+    contents = pre.renderContents()
+
+    # normalize line breaks (i don't know why ec2 is getting odd tags)
+    # ORDER MATTERS
+    # git rid of weird break tags that show up with ec2
+    contents = contents.replace('</br>','')
+    # normalize old style br to new style br
+    contents = contents.replace('<br>','<br/>')
+    # change all line breaks to new lines
+    contents = contents.replace('<br/>','\n')
+
+    # remove annoying font tags and add a space between intron and exon
+    # ORDER MATTERS 
+    # remove tags, add space between intron and exon
+    contents = contents.replace('</font><font size="+2">',' ')
+    # get rid of tag hanging out in the intron
+    contents = contents.replace('<font size="+2">','')
+    # and finally remove the closing tag from the exon
+    contents = contents.replace('</font>','')
+ 
+    # Now we can easily split by newline 
+    # could have done this on <br/> but cleaner to print out results for debug
+    lines = contents.split("\n")
+
+    if len(lines) <= 1:
+        print "Error: Expected multiple lines but found only one."
+        print lines
+        return []
+
+    # lines[0] is the header so skip
+    for line in lines[1:]:
+        # change all multiple spaces to single spaces 
+        normalizedLine = ''
+
+        # strip leading and trailing whitespace
+        line = line.strip()
+        if len(line) <= 0:
+            continue
+
+        for i,c in enumerate(line):
+            # if not space, add character
+            if c!=' ':
+                normalizedLine = normalizedLine + c
+            else:
+                if i < (len(line)-1):
+                    # if next spot is a space, ignore this one
+                    if line[i+1] == ' ':
+                        continue
+                    # if next spot is not a space, take this space
+                    else:
+                        normalizedLine = normalizedLine + c
+                # else: don't care about ending space
+
+        #print normalizedLine
+        # now we can split the line by space and have all our SpliceSite parts
+        parts = normalizedLine.split(' ')
+        if len(parts) != 5:
+            print "Error: bad line! Expected 5 parts."
+            print normalizedLine
+            print parts
+        else:
+            spliceSiteList.append(SpliceSite(int(parts[0]),
+                                             int(parts[1]),
+                                             float(parts[2]),
+                                             parts[3],
+                                             parts[4]))
+
+    return spliceSiteList
+
     # ignore lines that start with '<','a','c','g', or 't'
     # lines we care about probably start with one or more spaces
     #ignoreAlphabet = ['s','<','a','c','g','t']
     ignoreAlphabet = ['s','<']
-    for contents in pre.contents:
-        if contents==None or len(contents) <= 0:
+    for i,contents in enumerate(pre.contents):
+        if contents==None or len(contents) <= 0 or contents.string==None:
             continue
+
         # skip lines we don't care about
         # we will want to care about <font> lines
         #lc = contents.lower()
