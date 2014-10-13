@@ -236,21 +236,18 @@ def splice_site():
             flash('Genome not specified. Using hg38.')
 
         # Set up the mutation information for this run 
-        session['chromosome'] = 'chrom1'
+        session['chromosome'] = 'chr1'
         session['position'] = '1'
         session['base'] = 'A'
         if 'chromosome' in request.form and \
             request.form['chromosome'] != session['chromosome']:
             session['chromosome'] = request.form['chromosome']
-            flash("Working with chromosome %s"%(session['chromosome']))
         if 'position' in request.form and \
             request.form['position'] != session['position']:
             session['position'] = request.form['position']
-            flash("Working with position %s"%(session['position']))
         if 'base' in request.form and \
             request.form['base'] != session['base']:
             session['base'] = request.form['base']
-            flash("Using %s as reference base"%(session['base']))
 
         createSession()
         genomePath = "genomes"
@@ -260,13 +257,6 @@ def splice_site():
             session['db'] = 'hg38'
             genomeFile = "hg38.2bit"
         genomeFilePath = "/".join([genomePath,genomeFile])
-        #processRows(session['uuid'],rows,genomeFilePath,
-        #    db=session['db'],
-        #    chromcol=session['chromcol'],poscol=session['poscol'],
-        #    refcol=session['refcol'],
-        #    bracketlen=session['bracketlen'],
-        #    primerlen=session['primerlen'])
-        #return render_template('status.html')
 
         #if app.config['GB'] == 'UCSC':
         #    seq = genomebrowser.gb_getSequence(hgsid, db=db, chrom=chrom,
@@ -292,17 +282,25 @@ def splice_site():
 
         expectedList = []
         variantList = []
-        newList = []
+        msgList = []
 
         for ss in expectedSites:
-            expectedList.append(str(ss))
+            expectedList.append([ss.start,
+                                 ss.end,
+                                 ss.score,
+                                 ss.intron,
+                                 ss.exon])
 
         for ss in variantSites:
-            variantList.append(str(ss)) 
+            variantList.append([ss.start,
+                                ss.end,
+                                ss.score,
+                                ss.intron,
+                                ss.exon])
 
         # List where we will store the SpliceSites to print
         # These are the sites that are "interesting"
-        printList = []
+        reportList = []
 
         for i, variantSite in enumerate(variantSites):
             (posB,baseB,scoreB) = variantSite.getSpliceSite()
@@ -329,15 +327,20 @@ def splice_site():
                     break
                 origBase = seq[posB].lower()
 
-                newList.append("New splice site predicted at position %d with score %0.2f. "
+                msgList.append("New splice site predicted at position %d with score %0.2f. "
                     "Original base was '%s' and new base is '%s'."
                     %(posB, scoreB, origBase, baseB))
 
-                printList.append(variantSite)
+                reportList.append([variantSite.start,
+                                   variantSite.end,
+                                   variantSite.score,
+                                   variantSite.intron,
+                                   variantSite.exon])
+                
 
-        #if len(printList) > 0:
+        #if len(reportList) > 0:
         #    #output = output + "Start\tEnd\tScore\tIntron\t\t\tExon\n"
-        #    for ss in printList:
+        #    for ss in reportList:
         #        output = output + ss.pprint(delim='\t') + "\n"
         #output = output + "\n" 
 
@@ -350,8 +353,12 @@ def splice_site():
         return render_template('splicesite.html',
                                expectedList=expectedList,
                                variantList=variantList,
-                               newList=newList,
-                               printList=printList)
+                               msgList=msgList,
+                               reportList=reportList,
+                               db=session['db'],
+                               chromosome=session['chromosome'],
+                               position=session['position'],
+                               base=session['base'])
 
     # if not post, return index.html
     return render_template('index.html')#,primerList=session['primerList'])

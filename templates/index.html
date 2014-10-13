@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block body %}
+    <hr/>
     <div class="pyprimer3">
+        <h2>Primer Design</h2>
+        <br/>
         <form action="{{ url_for('upload_file') }}" method=post enctype=multipart/form-data>
             <input type=file name=file><br/><br/>
             <hr/>
@@ -42,15 +45,18 @@
             <input type=submit value="Get Primers"/>
         </form>
     </div>
+    <br/>
+    <hr/>
+    <br/>
     <div class="splicesite">
+        <h2>Splice Site Prediction</h2>
+        <br/>
         <form action=" {{ url_for('splice_site') }}" method=post>
-        <p>A file upload form will go here</p><br/><br/>
-        <hr/>
         <label><b>Genome Assembly</b></label><br/>
         <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
         <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
         <hr/>
-        <label><b>Mutation Information</b></label>
+        <label><b>Variant Information</b></label>
         <table>
             <tr>
                 <td>Chromosome:</td>
@@ -61,7 +67,7 @@
                 <td><input type=text name="position"/></td>
             </tr>
             <tr>
-                <td>Mutated Base:</td>
+                <td>Variant Base:</td>
                 <td><input type=text name="base" size="1"/></td>
             </tr>
         </table>
