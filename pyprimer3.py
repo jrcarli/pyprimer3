@@ -70,6 +70,97 @@ def endSession():
     _warnings.pop(session['uuid'],None)
     session.pop('uuid', None)
 
+#@decorators.async
+def predictSpliceSites(sessionId,
+                       rows,
+                       genomeFile,
+                       db='hg38',
+                       chromcol='#CHROMCOL',
+                       poscol='POS',
+                       varcol='VARIANT'):
+    for row in rows:
+        chrom = "chr%s"%(row[chromcol])
+        seqStart = int(row[poscol]) - 501
+        seqEnd = int(row[poscol]) + 500
+        genome = sequenceutils.loadGenome(genomeFile)
+        seq = sequenceutils.getSequence(genome, chrom, seqStart, seqEnd)
+
+        # make a copy of seq but with the base modified at specified position
+        # python doesn't support item assignments w/in strings so build pieces
+        var = seq[0:500]
+        var = var + row[varcol]
+        var = var + seq[501:]
+
+        expectedSites = fruitfly.getSpliceSitePredictions(seq)
+        variantSites = fruitfly.getSpliceSitePredictions(var)
+
+        expectedList = []
+        variantList = []
+        msgList = []
+
+        for ss in expectedSites:
+            expectedList.append([ss.start,
+                                 ss.end,
+                                 ss.score,
+                                 ss.intron,
+                                 ss.exon])
+
+        for ss in variantSites:
+            variantList.append([ss.start,
+                                ss.end,
+                                ss.score,
+                                ss.intron,
+                                ss.exon])
+
+        # List where we will store the SpliceSites to print
+        # These are the sites that are "interesting"
+        reportList = []
+
+        for i, variantSite in enumerate(variantSites):
+            (posB,baseB,scoreB) = variantSite.getSpliceSite()
+            foundMatch = False
+            for j, expectedSite in enumerate(expectedSites):
+                (posA,baseA,scoreA) = expectedSite.getSpliceSite()
+                if posA==posB:
+                    foundMatch = True
+                    if scoreA==scoreB:
+                        if baseA != baseB:
+                            flash("Base changed from %s to %s at position %d "
+                                "with score %0.2f\n"%(baseA, baseB, posA, scoreA))
+                    else:
+                        delta = abs(scoreA - scoreB)
+                        if delta >= 0.4:
+                            flash("Score changed by %0.2f from %0.2f to %0.2f "
+                                "at position %d.\n"%(delta, scoreA, scoreB, posA))
+            if not foundMatch:
+
+                if posB >= len(seq):
+                    flash("Oops! Somehow the length of our expected and varied "
+                        "sequences is not equivalent (%d for expected, "
+                        "%d for varied).\n"%(len(seq),len(var)))
+                    break
+                origBase = seq[posB].lower()
+
+                msgList.append("New splice site predicted at position %d with score %0.2f. "
+                    "Original base was '%s' and new base is '%s'."
+                    %(posB, scoreB, origBase, baseB))
+
+                reportList.append([variantSite.start,
+                                   variantSite.end,
+                                   variantSite.score,
+                                   variantSite.intron,
+                                   variantSite.exon])
+                
+
+        return render_template('multiplesites.html',
+                               reportList=reportList,
+                               db=session['db'],
+                               chromosome=session['chromosome'],
+                               position=session['position'],
+                               base=session['base'])
+# end of predictSpliceSites()
+
+
 @decorators.async
 def processRows(sessionId,rows,genomeFile,
     db='hg38',
@@ -364,6 +455,64 @@ def splice_site():
     return render_template('index.html')#,primerList=session['primerList'])
 
 # end of splice_site()
+
+@app.route('/multiplesites', methods=['GET','POST'])
+def multiple_sites():
+    if request.method == 'POST':
+        session['db'] = 'hg38' # use the latest genome by default
+        if 'db' in request.form:
+            if request.form['db'] == 'hg19':
+                session['db'] = 'hg19'
+            elif request.form['db'] != 'hg38':
+                flash('Unsuported genome option %s. Using hg38.'
+                    %(request.form['session']))
+        else:
+            flash('Genome not specified. Using hg38.')
+        session['chromcol'] = '#CHROM'
+        session['poscol'] = 'POS'
+        session['varcol'] = 'VARIANT'
+        if 'chromcol' in request.form and \
+            request.form['chromcol'] != session['chromcol']:
+            session['chromcol'] = request.form['chromcol']
+            flash("Using %s as chromosome column name"%(session['chromcol']))
+        if 'poscol' in request.form and \
+            request.form['poscol'] != session['poscol']:
+            session['poscol'] = request.form['poscol']
+            flash("Using %s as position column name"%(session['poscol']))
+        if 'varcol' in request.form and \
+            request.form['varcol'] != session['varcol']:
+            session['varcol'] = request.form['varcol']
+            flash("Using %s as variant column name"%(session['varcol']))
+        file = request.files['file']
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
+            file.save(path)
+            createSession()
+            session['filename'] = filename
+            if filename[-3:] == 'csv':
+                rows = fileutils.readCsv(path)
+            else:
+                rows = fileutils.readExcel(path)
+            session['totalRows'] = len(rows)
+            genomePath = "genomes"
+            if session['db'] == 'hg19':
+                genomeFile = "hg19.2bit"
+            else:
+                session['db'] = 'hg38'
+                genomeFile = "hg38.2bit"
+            genomeFilePath = "/".join([genomePath,genomeFile])
+            return predictSpliceSites(session['uuid'],
+                               rows,
+                               genomeFilePath,
+                               db=session['db'],
+                               chromcol=session['chromcol'],
+                               poscol=session['poscol'],
+                               varcol=session['varcol'],
+                              )
+            return render_template('status.html')
+
+    return render_template('index.html')
 
 @app.route('/', methods=['GET','POST'])
 def upload_file():

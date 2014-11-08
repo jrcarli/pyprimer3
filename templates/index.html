@@ -49,30 +49,64 @@
     <hr/>
     <br/>
     <div class="splicesite">
-        <h2>Splice Site Prediction</h2>
+        <h2>Single Splice Site Prediction</h2>
         <br/>
         <form action=" {{ url_for('splice_site') }}" method=post>
-        <label><b>Genome Assembly</b></label><br/>
-        <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
-        <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
-        <hr/>
-        <label><b>Variant Information</b></label>
-        <table>
-            <tr>
-                <td>Chromosome:</td>
-                <td><input type=text name="chromosome"/></td>
-            </tr>
-            <tr>
-                <td>Position:</td>
-                <td><input type=text name="position"/></td>
-            </tr>
-            <tr>
-                <td>Variant Base:</td>
-                <td><input type=text name="base" size="1"/></td>
-            </tr>
-        </table>
-        <hr/>
-        <input type=submit value="Get Splice Site Predictions"/>
+            <label><b>Genome Assembly</b></label><br/>
+            <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
+            <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
+            <hr/>
+            <label><b>Variant Information</b></label>
+            <table>
+                <tr>
+                    <td>Chromosome:</td>
+                    <td><input type=text name="chromosome"/></td>
+                </tr>
+                <tr>
+                    <td>Position:</td>
+                    <td><input type=text name="position"/></td>
+                </tr>
+                <tr>
+                    <td>Variant Base:</td>
+                    <td><input type=text name="base" size="1"/></td>
+                </tr>
+            </table>
+            <hr/>
+            <input type=submit value="Get Splice Site Predictions"/>
+        </form>
+    </div>
+    <br/>
+    <hr/>
+    <br/>
+    <div class="multiplesites">
+        <h2>Multiple Splice Site Predictions</h2>
+        <br/>
+        <form action="{{ url_for('multiple_sites') }}" method=post enctype=multipart/form-data>
+            <input type=file name=file><br/><br/>
+            <hr/>
+            <label><b>Genome Assembly</b></label><br/>
+            <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
+            <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
+            <!--<img src="{{ url_for('static', filename='favicon.ico') }}" onclick=fade() /><br/>
+            <div class=options style="display:none;">-->
+            <hr/>
+            <label><b>Spreadsheet Columns</b></label>
+            <table>
+                <tr>
+                    <td>Chromosome Column Name:</td>
+                    <td><input type=text name=chromcol value="#CHROM"/></td>
+                </tr>
+                <tr>
+                    <td>Position Column Name:</td>
+                    <td><input type=text name=poscol value="POS"/></td>
+                </tr>
+                <tr>
+                    <td>Variant Column Name:</td>
+                    <td><input type=text name=varcol value="VARIANT"/></tr>
+                </tr>
+            </table>
+            <hr/>
+            <input type=submit value="Get Splice Site Predictions"/>
         </form>
     </div>
 
