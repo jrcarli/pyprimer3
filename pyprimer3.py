@@ -46,6 +46,7 @@ app.config.update(dict(
 #TODO: make this part of the g obj
 _sessionPrimers = {}
 _warnings = {}
+_sessionPredictions = {}
 
 def getDummyPrimers(sessionId):
     """Handy dummy function when working offline."""
@@ -58,19 +59,23 @@ def getDummyPrimers(sessionId):
 
 def createSession():
     global _sessionPrimers
+    global _sessionPredictions
     global _warnings
     session['uuid'] = str(uuid.uuid4()) 
     _sessionPrimers[session['uuid']] = []
+    _sessionPredictions[session['uuid']] = []
     _warnings[session['uuid']] = []
     
 def endSession():
     global _sessionPrimers
+    global _sessionPredictions
     global _warnings
     _sessionPrimers.pop(session['uuid'],None)
+    _sessionPredictions.pop(session['uuid'],None)
     _warnings.pop(session['uuid'],None)
     session.pop('uuid', None)
 
-#@decorators.async
+@decorators.async
 def predictSpliceSites(sessionId,
                        rows,
                        genomeFile,
@@ -78,6 +83,8 @@ def predictSpliceSites(sessionId,
                        chromcol='#CHROMCOL',
                        poscol='POS',
                        varcol='VARIANT'):
+    global _sessionPredictions
+    global _warnings
     for row in rows:
         chrom = "chr%s"%(row[chromcol])
         seqStart = int(row[poscol]) - 501
@@ -150,14 +157,21 @@ def predictSpliceSites(sessionId,
                                    variantSite.score,
                                    variantSite.intron,
                                    variantSite.exon])
+                _sessionPredictions[sessionId].append(True) # counter of sorts
+                #print "Start\tEnd\tScore\tIntron\t\t\tExon"
+                #print("%d\t%d\t%0.2f\t%s\t%s"%(variantSite.start,
+                #    variantSite.end,
+                #    variantSite.score,
+                #    variantSite.intron,
+                #    variantSite.exon)) 
                 
 
-        return render_template('multiplesites.html',
-                               reportList=reportList,
-                               db=session['db'],
-                               chromosome=session['chromosome'],
-                               position=session['position'],
-                               base=session['base'])
+        #return render_template('multiplesites.html',
+        #                       reportList=reportList,
+        #                       db=session['db'],
+        #                       chromosome=session['chromosome'],
+        #                       position=session['position'],
+        #                       base=session['base'])
 # end of predictSpliceSites()
 
 
@@ -292,6 +306,27 @@ def getStatus():
         'warnings':warnings})
 # end of getStatus()
 
+@app.route('/predictionstatus', methods=['GET'])
+def getPredictionStatus():
+    global _sessionPredictions
+    global _warnings
+    if session['uuid'] in _sessionPredictions:
+        curLen = len(_sessionPredictions[session['uuid']])
+    else:
+        curLen = 0
+    if 'totalRows' not in session:
+        session['totalRows'] = -1
+
+    warnings = []
+    if session['uuid'] in _warnings:
+        warnings.extend(_warnings[session['uuid']])
+
+    return jsonify({'totalRows':str(session['totalRows']),
+        'curRow':str(curLen), 'uuid':session['uuid'],
+        'warnings':warnings})
+
+# end of getPredictioStatus()
+
 def allowed_file(filename):
     global ALLOWED_EXTENSIONS
     return '.' in filename and \
@@ -312,6 +347,13 @@ def get_file(filename):
     endSession()
     return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
 # end of get_file()
+
+@app.route('/getpredictions/<filename>')
+def get_predictions(filename):
+    global _sessionPredictions
+    flash('Not yet supported')
+    return render_template('index.html') 
+# end of get_predictions()
 
 @app.route('/splicesite', methods=['GET','POST'])
 def splice_site():
@@ -502,7 +544,7 @@ def multiple_sites():
                 session['db'] = 'hg38'
                 genomeFile = "hg38.2bit"
             genomeFilePath = "/".join([genomePath,genomeFile])
-            return predictSpliceSites(session['uuid'],
+            predictSpliceSites(session['uuid'],
                                rows,
                                genomeFilePath,
                                db=session['db'],
@@ -510,7 +552,7 @@ def multiple_sites():
                                poscol=session['poscol'],
                                varcol=session['varcol'],
                               )
-            return render_template('status.html')
+            return render_template('predictionstatus.html')
 
     return render_template('index.html')
 

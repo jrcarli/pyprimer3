@@ -1,8 +1,8 @@
-function getStatus() {
+function getStatus(endpoint) {
     // first start the timer if it is not already running
     if(null == window.statusTimer) {
         //alert("Starting the timer");
-        window.statusTimer = setInterval(function(){getStatus();},500);
+        window.statusTimer = setInterval(function(){getStatus(endpoint);},500);
         window.progressBar = new ProgressBar("my-progressbar", {'width':'100px', 'height':'4px'});
         window.progressBar.setPercent(0);
     }
@@ -10,7 +10,7 @@ function getStatus() {
         alert("Timer running");
     }*/
     var statusDiv = $("div.status");
-    $.get('/status').done(function(showStatus) {
+    $.get(endpoint).done(function(showStatus) {
         // totalRows, curRow are returned
         var totalRows = showStatus['totalRows'];
         var curRow = showStatus['curRow'];
@@ -52,7 +52,14 @@ function getStatus() {
                 txt = txt + uuid + ".csv<br/><br/>";
                 txt = txt + "Return <a href='/'>home</a><br/>";
                 statusDiv.html(txt)
-                setTimeout(function(){window.location="/getfile/"+uuid+".csv";},2000);
+                if(endpoint=="/predictionstatus")
+                {
+                    setTimeout(function(){window.location="/getpredictions/"+uuid+".csv";},2000);
+                }
+                else
+                {
+                    setTimeout(function(){window.location="/getfile/"+uuid+".csv";},2000);
+                }
             }
         }
     }).fail(function() {
