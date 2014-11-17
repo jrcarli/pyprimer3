@@ -59,5 +59,19 @@ def primersToCsv(primerList,outfile,delim=','):
         f.write('Name%cSequence%cSize\n'%(delim,delim))
         for primer in primerList:
             output = str(primer)
-            f.write(output+"\n")
+            f.write(output+'\n')
 # end of primersToCsv()        
+
+def predictionsToCsv(predictionList,outfile,delim=','):
+    with open(outfile,'wb') as f:
+        f.write('Start%cEnd%cScore%cIntron%cExon\n'%(delim,delim,delim,delim))
+        # each element in predictionList is a SpliceSite
+        for prediction in predictionList:
+            output = str(prediction) 
+            #output = ('%d%c%d%c%0.2f%c%s%c%s'%(start,delim,
+            #                                   end,delim,
+            #                                   score,delim,
+            #                                   intron,delim,
+            #                                   exon))
+            f.write(output+'\n')
+# end of predictionsToCsv()

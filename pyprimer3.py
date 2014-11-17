@@ -105,6 +105,7 @@ def predictSpliceSites(sessionId,
         variantList = []
         msgList = []
 
+        # not used ... yet
         for ss in expectedSites:
             expectedList.append([ss.start,
                                  ss.end,
@@ -118,10 +119,6 @@ def predictSpliceSites(sessionId,
                                 ss.score,
                                 ss.intron,
                                 ss.exon])
-
-        # List where we will store the SpliceSites to print
-        # These are the sites that are "interesting"
-        reportList = []
 
         for i, variantSite in enumerate(variantSites):
             (posB,baseB,scoreB) = variantSite.getSpliceSite()
@@ -152,26 +149,8 @@ def predictSpliceSites(sessionId,
                     "Original base was '%s' and new base is '%s'."
                     %(posB, scoreB, origBase, baseB))
 
-                reportList.append([variantSite.start,
-                                   variantSite.end,
-                                   variantSite.score,
-                                   variantSite.intron,
-                                   variantSite.exon])
-                _sessionPredictions[sessionId].append(True) # counter of sorts
-                #print "Start\tEnd\tScore\tIntron\t\t\tExon"
-                #print("%d\t%d\t%0.2f\t%s\t%s"%(variantSite.start,
-                #    variantSite.end,
-                #    variantSite.score,
-                #    variantSite.intron,
-                #    variantSite.exon)) 
-                
-
-        #return render_template('multiplesites.html',
-        #                       reportList=reportList,
-        #                       db=session['db'],
-        #                       chromosome=session['chromosome'],
-        #                       position=session['position'],
-        #                       base=session['base'])
+                # Add to the session predictions list
+                _sessionPredictions[sessionId].append(variantSite) 
 # end of predictSpliceSites()
 
 
@@ -336,12 +315,6 @@ def allowed_file(filename):
 @app.route('/getfile/<filename>')
 def get_file(filename):
     global _sessionPrimers
-    #expectedFilename = ".".join([session['uuid'],'csv'])
-    #if filename != expectedFilename:
-    #    flash("Error: Bad session ID.")
-    #    return redirect(url_for('upload_file'))
-    # make sure to create the filename locally so we can end the session
-    #filename = filename + ".csv"
     path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
     fileutils.primersToCsv(_sessionPrimers[session['uuid']],path)
     endSession()
@@ -351,8 +324,10 @@ def get_file(filename):
 @app.route('/getpredictions/<filename>')
 def get_predictions(filename):
     global _sessionPredictions
-    flash('Not yet supported')
-    return render_template('index.html') 
+    path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
+    fileutils.predictionsToCsv(_sessionPredictions[session['uuid']],path)
+    endSession()
+    return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
 # end of get_predictions()
 
 @app.route('/splicesite', methods=['GET','POST'])
