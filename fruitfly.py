@@ -109,11 +109,13 @@ def getSpliceSitePredictions(seq):
     # remove annoying font tags and add a space between intron and exon
     # ORDER MATTERS 
     # remove tags, add space between intron and exon
-    contents = contents.replace('</font><font size="+2">',' ')
+    #contents = contents.replace('</font><font size="+2">',' ') # use for a,g
+    contents = contents.replace('</font><font size="+2">','') # use for ag,gt
     # get rid of tag hanging out in the intron
     contents = contents.replace('<font size="+2">','')
     # and finally remove the closing tag from the exon
-    contents = contents.replace('</font>','')
+    #contents = contents.replace('</font>','') # use for a,g
+    contents = contents.replace('</font>',' ') # use for ag,gt
  
     # Now we can easily split by newline 
     # could have done this on <br/> but cleaner to print out results for debug
