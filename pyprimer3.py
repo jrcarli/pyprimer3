@@ -13,6 +13,13 @@ from flask import (Flask, request, render_template, redirect, url_for,
     send_from_directory, flash, jsonify, session, g)
 from werkzeug.utils import secure_filename
 
+# celery
+from celery import Celery
+from celery.utils.log import get_task_logger
+
+# redis
+import redis
+
 # local modules
 import decorators 
 import appsecret 
@@ -43,36 +50,35 @@ app.config.update(dict(
     STATUS='ONLINE',
     ))
 
+# Celery configuration
+app.config['CELERY_BROKER_URL'] = 'redis://localhost:6379/0'
+app.config['CELERY_RESULT_BACKEND'] = 'redis://localhost:6379/0'
+
+# Initialize Celery
+celery = Celery(app.name, broker=app.config['CELERY_BROKER_URL'])
+celery.conf.update(app.config)
+logger = get_task_logger(app.name)
+
+# Initialize Redis connection
+redis_server = redis.Redis(app.config['CELERY_RESULT_BACKEND'])
+
 #TODO: make this part of the g obj
-_sessionPrimers = {}
-_warnings = {}
 _sessionPredictions = {}
 
-def getDummyPrimers(sessionId):
-    """Handy dummy function when working offline."""
-    global _sessionPrimers
-    pA = Primer('chr1',808984,'GATACA','GATACA',100)
-    pB = Primer('chr1',909984,'TACATACA','TACATACA',200)
-    time.sleep(8)
-    _sessionPrimers[sessionId].extend([pA,pB])
-# end of returnDummyPrimers()
-
 def createSession():
-    global _sessionPrimers
+    return
+    """
     global _sessionPredictions
-    global _warnings
+    """
     session['uuid'] = str(uuid.uuid4()) 
-    _sessionPrimers[session['uuid']] = []
-    _sessionPredictions[session['uuid']] = []
-    _warnings[session['uuid']] = []
-    
+    #_sessionPredictions[session['uuid']] = []
+
 def endSession():
-    global _sessionPrimers
+    return
+    """
     global _sessionPredictions
-    global _warnings
-    _sessionPrimers.pop(session['uuid'],None)
     _sessionPredictions.pop(session['uuid'],None)
-    _warnings.pop(session['uuid'],None)
+    """
     session.pop('uuid', None)
 
 @decorators.async
@@ -153,28 +159,31 @@ def predictSpliceSites(sessionId,
                 _sessionPredictions[sessionId].append(variantSite) 
 # end of predictSpliceSites()
 
-
-@decorators.async
-def processRows(sessionId,rows,genomeFile,
+@celery.task(bind=True)
+def processRows(self,rows,genomeFile,
     db='hg38',
     chromcol='#CHROM',poscol='POS',refcol='REF',
     bracketlen=500,primerlen='200-500'):
-    global _sessionPrimers
-    global _warnings
 
-    if app.config['STATUS'] == 'OFFLINE':
-        return getDummyPrimers(sessionId)
+    # celery kung fu
+    self.primers = list()
+    #self.warnings = list()
+    warnings = list()
+    task_id = processRows.request.id
+
+    rowCount = len(rows)
 
     for idx,row in enumerate(rows):
+        logger.info('Processing row %d'%(idx)) 
+        warnings.append('Processing row %d'%(idx))
         if chromcol not in row or \
             poscol not in row or \
             refcol not in row:
             print "~"*20+" MISSING COL IN ROW "+"~"*20
             print row
             warn = ("Error! Row %d could not be parsed. Skipping."%(idx+1))
-            _warnings[sessionId].append(warn)
-            _sessionPrimers[sessionId].append(
-                Primer('ERROR',-1,'ERROR','ERROR',-1))
+            warnings.append(warn)
+            self.primers.append(Primer('ERROR',-1,'ERROR','ERROR',-1))
             continue
          
         pos = row[poscol]
@@ -188,17 +197,17 @@ def processRows(sessionId,rows,genomeFile,
         try:
             chrom_int = int(row[chromcol])
             if chrom_int < 1 or chrom_int > 22:
-                print warn
-                _warnings[sessionId].append(warn)
-                _sessionPrimers[sessionId].append(
+                logging.warning(warn)
+                warnings.append(warn)
+                self.primers.append(
                     Primer('ERROR',-1,'ERROR','ERROR',-1))
                 continue
         except:
             chrom_str = row[chromcol].lower()
             if chrom_str!='x' and chrom_str!='y':
-                print warn    
-                _warnings[sessionId].append(warn)
-                _sessionPrimers[sessionId].append(
+                logging.warning(warn)   
+                warnings.append(warn)
+                self.primers.append(
                     Primer('ERROR',-1,'ERROR','ERROR',-1))
                 continue
 
@@ -208,9 +217,9 @@ def processRows(sessionId,rows,genomeFile,
         except:
             warn = ("Error! Found '%s' in %s column of row %d; expected "
                 "an integer. Skipping."%(pos,poscol,idx+1))
-            print warn
-            _warnings[sessionId].append(warn)
-            _sessionPrimers[sessionId].append(
+            logging.warning(warn)
+            warnings.append(warn)
+            self.primers.append(
                 Primer('ERROR',-1,'ERROR','ERROR',-1))
             continue
 
@@ -221,8 +230,9 @@ def processRows(sessionId,rows,genomeFile,
             and lowerRef!='t' and lowerRef!='g'):
             warn = ("Error! Found '%s' in %s column of row %d; expected "
                 "A, C, T, or G. Skipping."%(ref,refcol,idx+1))
-            _warnings[sessionId].append(warn)
-            _sessionPrimers[sessionId].append(
+            logging.warning(warn)
+            warnings.append(warn)
+            self.primers.append(
                 Primer('ERROR',-1,'ERROR','ERROR',-1))
             continue
 
@@ -242,8 +252,8 @@ def processRows(sessionId,rows,genomeFile,
             warn = ("Warning! Reference '%s' for chromosome %s, "
                 "position %s was found to be '%s' in the genome file."
                 %(ref,chrom,pos,genomeRef))
-            print warn
-            _warnings[sessionId].append(warn)
+            logging.warning(warn)
+            warnings.append(warn)
 
         seqStart = int(pos) - bracketlen - 1 
         seqEnd = seqStart + bracketlen + bracketlen + 1 
@@ -259,30 +269,57 @@ def processRows(sessionId,rows,genomeFile,
         bseq = sequenceutils.bracketSequence(seq).upper() 
         primer = webprimer3.getPrimer(bseq, chrom, int(pos), primerlen)
         if primer == None:
-            print "getPrimer returned None!!"
-        _sessionPrimers[sessionId].append(primer)
+            logging.warning('getPrimer returned None')
+        self.primers.append(primer)
+        logger.debug('Updating state for task id %s'%(str(task_id)))
+        self.update_state(state='PROGRESS', meta={'current':idx, 'total': rowCount, 'warnings': warnings}) 
+    
+    logger.debug('Creating output file ...')
+    filename = str(task_id) + '.csv' 
+    path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
+    logger.debug('Filename: %s'%(filename))
+    logger.debug('Path: %s'%(path))
+    fileutils.primersToCsv(self.primers,path)
+    logger.debug('Done writing to file')
 
-    #print "processRows(): %d Primers created"%(len(_sessionPrimers[sessionId]))
+    logger.info('Returning result')
+    return {'current': rowCount, 'total': rowCount, 'warnings': warnings } 
+
 # end of processRows()
 
-@app.route('/status', methods=['GET'])
-def getStatus():
-    global _sessionPrimers
-    global _warnings
-    if session['uuid'] in _sessionPrimers:
-        curLen = len(_sessionPrimers[session['uuid']])
+@app.route('/status/<task_id>', methods=['GET'])
+def getStatus(task_id):
+    task = processRows.AsyncResult(task_id)
+
+    if task.state == 'PENDING':
+        response = {
+            'state': task.state,
+            'current': 0,
+            'total': 1,
+            'warnings': [], 
+        }
+    elif task.state != 'FAILURE':
+        warnings = []
+        if 'warnings' in task.result:
+            warnings = task.result['warnings']
+        response = {
+            'state': task.state,
+            'current': task.info.get('current',0),
+            'total': task.info.get('total', 1),
+            'warnings': warnings, 
+        }
     else:
-        curLen = 0
-    if 'totalRows' not in session:
-        session['totalRows'] = -1
-
-    warnings = []
-    if session['uuid'] in _warnings:
-        warnings.extend(_warnings[session['uuid']])
-
-    return jsonify({'totalRows':str(session['totalRows']),
-        'curRow':str(curLen), 'uuid':session['uuid'],
-        'warnings':warnings})
+        # something went wrong in the background job
+        warnings = []
+        if 'warnings' in task.result:
+            warnings = task.result['warnings']
+        response = {
+            'state': task.state,
+            'current': 1,
+            'total': 1,
+            'warnings': [],#warnings, 
+        }
+    return jsonify(response) 
 # end of getStatus()
 
 @app.route('/predictionstatus', methods=['GET'])
@@ -314,10 +351,6 @@ def allowed_file(filename):
 
 @app.route('/getfile/<filename>')
 def get_file(filename):
-    global _sessionPrimers
-    path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
-    fileutils.primersToCsv(_sessionPrimers[session['uuid']],path)
-    endSession()
     return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
 # end of get_file()
 
@@ -592,13 +625,20 @@ def upload_file():
                 session['db'] = 'hg38'
                 genomeFile = "hg38.2bit"
             genomeFilePath = "/".join([genomePath,genomeFile])
-            processRows(session['uuid'],rows,genomeFilePath,
-                db=session['db'],
-                chromcol=session['chromcol'],poscol=session['poscol'],
-                refcol=session['refcol'],
-                bracketlen=session['bracketlen'],
-                primerlen=session['primerlen'])
-            return render_template('status.html')
+
+            pr_args = [rows,
+                       genomeFilePath,
+                       session['db'],
+                       session['chromcol'],
+                       session['poscol'],
+                       session['refcol'],
+                       session['bracketlen'],
+                       session['primerlen'],
+                      ] 
+
+            task = processRows.apply_async(args=pr_args)
+            logger.info('Created task with id %s'%(task.id))
+            return render_template('status.html', task_id=task.id)
         else:
             if not file:
                 flash("You must specify a file.")

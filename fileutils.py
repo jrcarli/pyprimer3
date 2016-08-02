@@ -54,7 +54,7 @@ def readExcel(filename):
 # end of readExcel()
 
 def primersToCsv(primerList,outfile,delim=','):
-    #print "Writing %d primers to %s"%(len(primerList),outfile)
+    print "Writing %d primers to %s"%(len(primerList),outfile)
     with open(outfile,'wb') as f:
         f.write('Name%cSequence%cSize\n'%(delim,delim))
         for primer in primerList:
