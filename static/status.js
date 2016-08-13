@@ -1,11 +1,12 @@
-function getStatus(endpoint,task_id) {
+function getStatus(endpoint,myfunc,task_id) {
 //function getStatus(endpoint) {
-    var full_endpoint = endpoint + '/' + task_id;
+    var full_endpoint = endpoint + '/' + myfunc + '/' + task_id;
     console.log(endpoint);
+    console.log(full_endpoint);
     // first start the timer if it is not already running
     if(null == window.statusTimer) {
         //alert("Starting the timer");
-        window.statusTimer = setInterval(function(){getStatus(endpoint,task_id);},500);
+        window.statusTimer = setInterval(function(){getStatus(endpoint,myfunc,task_id);},500);
         window.progressBar = new ProgressBar("my-progressbar", {'width':'100px', 'height':'4px'});
         window.progressBar.setPercent(0);
     }

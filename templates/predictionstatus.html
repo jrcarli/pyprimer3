@@ -5,6 +5,6 @@
     </div>
     <div id="my-progressbar"></div>
     <script type=text/javascript>
-        getStatus("/predictionstatus");
+        getStatus("/predictionstatus", "{{ task_id }}");
     </script>
 {% endblock %}

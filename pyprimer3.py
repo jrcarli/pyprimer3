@@ -21,7 +21,7 @@ from celery.utils.log import get_task_logger
 import redis
 
 # local modules
-import decorators 
+#import decorators 
 import appsecret 
 import sequenceutils 
 import fileutils 
@@ -62,36 +62,35 @@ logger = get_task_logger(app.name)
 # Initialize Redis connection
 redis_server = redis.Redis(app.config['CELERY_RESULT_BACKEND'])
 
-#TODO: make this part of the g obj
-_sessionPredictions = {}
-
 def createSession():
+    """TODO: Remove if not useful"""
     return
-    """
-    global _sessionPredictions
-    """
     session['uuid'] = str(uuid.uuid4()) 
-    #_sessionPredictions[session['uuid']] = []
 
 def endSession():
+    """TODO: Remove if not useful"""
     return
-    """
-    global _sessionPredictions
-    _sessionPredictions.pop(session['uuid'],None)
-    """
     session.pop('uuid', None)
 
-@decorators.async
-def predictSpliceSites(sessionId,
+@celery.task(bind=True)
+def predictSpliceSites(self,
                        rows,
                        genomeFile,
                        db='hg38',
                        chromcol='#CHROMCOL',
                        poscol='POS',
                        varcol='VARIANT'):
-    global _sessionPredictions
-    global _warnings
-    for row in rows:
+    # celery kung fu
+    self.predictions = list()
+    #self.warnings = list()
+    warnings = list()
+    task_id = predictSpliceSites.request.id
+
+    rowCount = len(rows)
+
+    for idx,row in enumerate(rows):
+        logger.info('Processing row %d'%(idx))
+        warnings.append('Processing row %d'%(idx))
         chrom = "chr%s"%(row[chromcol])
         seqStart = int(row[poscol]) - 501
         seqEnd = int(row[poscol]) + 500
@@ -135,19 +134,29 @@ def predictSpliceSites(sessionId,
                     foundMatch = True
                     if scoreA==scoreB:
                         if baseA != baseB:
-                            flash("Base changed from %s to %s at position %d "
-                                "with score %0.2f\n"%(baseA, baseB, posA, scoreA))
+                            #flash("Base changed from %s to %s at position %d "
+                            #    "with score %0.2f\n"%(baseA, baseB, posA, scoreA))
+                            warn = ("Base changed from %s to %s at position %d "
+                                    "with score %0.2f"%(baseA,baseB,posA,scoreA))
+                            warnings.append(warn)
                     else:
                         delta = abs(scoreA - scoreB)
                         if delta >= 0.4:
-                            flash("Score changed by %0.2f from %0.2f to %0.2f "
-                                "at position %d.\n"%(delta, scoreA, scoreB, posA))
+                            #flash("Score changed by %0.2f from %0.2f to %0.2f "
+                            #    "at position %d.\n"%(delta, scoreA, scoreB, posA))
+                            warn = ("Score changed by %0.2f from %0.2f to %0.2f "
+                                    "at position %d."%(delta,scoreA,scoreB,posA))
+                            warnings.append(warn)
             if not foundMatch:
 
                 if posB >= len(seq):
-                    flash("Oops! Somehow the length of our expected and varied "
-                        "sequences is not equivalent (%d for expected, "
-                        "%d for varied).\n"%(len(seq),len(var)))
+                    #flash("Oops! Somehow the length of our expected and varied "
+                    #    "sequences is not equivalent (%d for expected, "
+                    #    "%d for varied).\n"%(len(seq),len(var)))
+                    warn = ("Oops! Somehow the length of our expected and varied "
+                            "sequences is not equivalent (%d for expected, "
+                            "%d for varied)."%(len(seq),len(var)))
+                    warnings.append(warn)
                     break
                 origBase = seq[posB].lower()
 
@@ -156,7 +165,19 @@ def predictSpliceSites(sessionId,
                     %(posB, scoreB, origBase, baseB))
 
                 # Add to the session predictions list
-                _sessionPredictions[sessionId].append(variantSite) 
+                self.predictions.append(variantSite) 
+
+    logger.debug('Creating output file ...')
+    filename = str(task_id) + '.csv' 
+    path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
+    logger.debug('Filename: %s'%(filename))
+    logger.debug('Path: %s'%(path))
+    fileutils.predictionsToCsv(self.predictions,path)
+    logger.debug('Done writing to file')
+
+    logger.info('Returning result')
+    return {'current': rowCount, 'total': rowCount, 'warnings': warnings } 
+
 # end of predictSpliceSites()
 
 @celery.task(bind=True)
@@ -287,9 +308,17 @@ def processRows(self,rows,genomeFile,
 
 # end of processRows()
 
-@app.route('/status/<task_id>', methods=['GET'])
-def getStatus(task_id):
-    task = processRows.AsyncResult(task_id)
+@app.route('/status/<myfunc>/<task_id>', methods=['GET'])
+def getStatus(myfunc,task_id):
+    myfunc = myfunc.lower()
+    if myfunc == 'primers':
+        task = processRows.AsyncResult(task_id)
+    elif myfunc == 'predictions':
+        task = predictSpliceSites.AsyncResult(task_id)
+    else:
+        print("Unexpected myfunc variable: %s"%(myfunc))
+        flash("Unexpected URL. Cannot identify task status.")
+        return render_template('index.html')
 
     if task.state == 'PENDING':
         response = {
@@ -320,28 +349,8 @@ def getStatus(task_id):
             'warnings': [],#warnings, 
         }
     return jsonify(response) 
+
 # end of getStatus()
-
-@app.route('/predictionstatus', methods=['GET'])
-def getPredictionStatus():
-    global _sessionPredictions
-    global _warnings
-    if session['uuid'] in _sessionPredictions:
-        curLen = len(_sessionPredictions[session['uuid']])
-    else:
-        curLen = 0
-    if 'totalRows' not in session:
-        session['totalRows'] = -1
-
-    warnings = []
-    if session['uuid'] in _warnings:
-        warnings.extend(_warnings[session['uuid']])
-
-    return jsonify({'totalRows':str(session['totalRows']),
-        'curRow':str(curLen), 'uuid':session['uuid'],
-        'warnings':warnings})
-
-# end of getPredictioStatus()
 
 def allowed_file(filename):
     global ALLOWED_EXTENSIONS
@@ -354,14 +363,6 @@ def get_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
 # end of get_file()
 
-@app.route('/getpredictions/<filename>')
-def get_predictions(filename):
-    global _sessionPredictions
-    path = os.path.join(app.config['UPLOAD_FOLDER'],filename)
-    fileutils.predictionsToCsv(_sessionPredictions[session['uuid']],path)
-    endSession()
-    return send_from_directory(app.config['UPLOAD_FOLDER'],filename)
-# end of get_predictions()
 
 @app.route('/splicesite', methods=['GET','POST'])
 def splice_site():
@@ -479,18 +480,6 @@ def splice_site():
                                    variantSite.exon])
                 
 
-        #if len(reportList) > 0:
-        #    #output = output + "Start\tEnd\tScore\tIntron\t\t\tExon\n"
-        #    for ss in reportList:
-        #        output = output + ss.pprint(delim='\t') + "\n"
-        #output = output + "\n" 
-
-        #print "~"*25 + " Expected " + "~"*25
-        #print seq
-        #print "" 
-        #print "~"*25 + " Variant " + "~"*25
-        #print var 
-        #print ""
         return render_template('splicesite.html',
                                expectedList=expectedList,
                                variantList=variantList,
@@ -502,7 +491,7 @@ def splice_site():
                                base=session['base'])
 
     # if not post, return index.html
-    return render_template('index.html')#,primerList=session['primerList'])
+    return render_template('index.html')
 
 # end of splice_site()
 
@@ -552,15 +541,27 @@ def multiple_sites():
                 session['db'] = 'hg38'
                 genomeFile = "hg38.2bit"
             genomeFilePath = "/".join([genomePath,genomeFile])
-            predictSpliceSites(session['uuid'],
-                               rows,
-                               genomeFilePath,
-                               db=session['db'],
-                               chromcol=session['chromcol'],
-                               poscol=session['poscol'],
-                               varcol=session['varcol'],
-                              )
-            return render_template('predictionstatus.html')
+            #predictSpliceSites(session['uuid'],
+            #                   rows,
+            #                   genomeFilePath,
+            #                   db=session['db'],
+            #                   chromcol=session['chromcol'],
+            #                   poscol=session['poscol'],
+            #                   varcol=session['varcol'],
+            #                  )
+            #return render_template('predictionstatus.html')
+
+            pr_args = [rows,
+                       genomeFilePath,
+                       session['db'],
+                       session['chromcol'],
+                       session['poscol'],
+                       session['varcol'],
+                      ] 
+
+            task = predictSpliceSites.apply_async(args=pr_args)
+            logger.info('Created task with id %s'%(task.id))
+            return render_template('status.html', myfunc='predictions', task_id=task.id)
 
     return render_template('index.html')
 
@@ -638,7 +639,7 @@ def upload_file():
 
             task = processRows.apply_async(args=pr_args)
             logger.info('Created task with id %s'%(task.id))
-            return render_template('status.html', task_id=task.id)
+            return render_template('status.html', myfunc='primers', task_id=task.id)
         else:
             if not file:
                 flash("You must specify a file.")
