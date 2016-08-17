@@ -1,31 +1,24 @@
 function getStatus(endpoint,myfunc,task_id) {
-//function getStatus(endpoint) {
     var full_endpoint = endpoint + '/' + myfunc + '/' + task_id;
     console.log(endpoint);
     console.log(full_endpoint);
     // first start the timer if it is not already running
     if(null == window.statusTimer) {
-        //alert("Starting the timer");
         window.statusTimer = setInterval(function(){getStatus(endpoint,myfunc,task_id);},500);
-        window.progressBar = new ProgressBar("my-progressbar", {'width':'100px', 'height':'4px'});
-        window.progressBar.setPercent(0);
+        $("div.progress-bar").css("width", "0%").attr("aria-valuenow", 0);
+        $("div.progress-bar").text("0%");
     }
-    /*else {
-        alert("Timer running");
-    }*/
-    var statusDiv = $("div.status");
+    var statusDiv = $("#status");
     $.get(full_endpoint).done(function(showStatus) {
         // totalRows, curRow are returned
         var state = showStatus['state'];
         var totalRows = showStatus['total'];//showStatus['totalRows'];
         var curRow = showStatus['current'];//curRow'];
-        //var uuid = showStatus['uuid'];
-        var uuid = task_id;
         var warnings = showStatus['warnings'];
-        console.log('State: ' + state);
+        /*console.log('State: ' + state);
         console.log('Total: ' + totalRows);
         console.log('Current: ' + curRow);
-        console.log('Num Warnings: ' + warnings.length);
+        console.log('Num Warnings: ' + warnings.length);*/
         if(warnings.length <= 0)
         {
             $("div.ajaxflash").hide();
@@ -50,22 +43,26 @@ function getStatus(endpoint,myfunc,task_id) {
         {
             if(curRow != totalRows) {
                 var prog = (curRow / totalRows) * 100;
-                //statusDiv.text("Processing row "+curRow+" of "+totalRows);
-                window.progressBar.setPercent(prog);
+                $("div.progress-bar").css("width", prog+"%").attr("aria-valuenow", prog);
+                $("div.progress-bar").text(prog+"%");
             }
             else {
-                window.progressBar.setPercent(100);
+                $("div.progress-bar").css("width", "100%").attr("aria-valuenow", 100);
+                $("div.progress-bar").text("100%");
+
+                $("div.progress-bar").removeClass("active");
+                //$("div.progress-bar").removeClass("progress-bar-striped");
+                $("div.finalmessage").removeClass("hidden");
                 clearInterval(window.statusTimer);
-                //window.location = "/";
-                var index;
-                var txt = "Processing complete.";
+                /*var txt = "Processing complete.";
                 txt = txt + " Your results will be downloaded as:<br/><br/>";
                 txt = txt + task_id + ".csv<br/><br/>";
                 txt = txt + "Return <a href='/'>home</a><br/>";
-                statusDiv.html(txt)
+                statusDiv.html(txt)*/
+
                 if(endpoint=="/predictionstatus")
                 {
-                    setTimeout(function(){window.location="/getpredictions/"+uuid+".csv";},2000);
+                    setTimeout(function(){window.location="/getpredictions/"+task_id+".csv";},2000);
                 }
                 else
                 {
@@ -74,20 +71,6 @@ function getStatus(endpoint,myfunc,task_id) {
             }
         }
     }).fail(function() {
-        //tr.text("{{ _('Error: Could not contact server.') }}");
-        //cr.hide();
-        //tr.show();
     });
     //return false; // always return true to submit the form
-}
-
-function fade() {
-    if($("div.options").is(":visible"))
-    {
-        $("div.options").fadeOut();
-    }
-    else
-    {
-        $("div.options").fadeIn();
-    }
 }

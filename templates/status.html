@@ -1,11 +1,21 @@
 {% extends "layout.html" %}
 {% block body %}
-    <div class=status>
-        <p>Processing ...</p>
-    </div>
-    <div id="my-progressbar"></div>
     <script type=text/javascript>
-        // TODO: ADD func
-        getStatus("/status", "{{ myfunc }}", "{{ task_id }}");
     </script>
+  <div class="tab-content">
+    <div class="tab-pane active" id="status">
+      <br/>
+      <div class="progress">
+        <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="{{ val }}"
+         aria-valuemin="0" aria-valuemax="100" style="width:{{ val }}%" id="myprogressbar">{{ val }}%
+        </div>
+        <script type=text/javascript>
+          //getbStatus("/bstatusupdate");
+          getStatus("/status", "{{ myfunc }}", "{{ task_id }}");
+        </script>
+      </div>
+      <div class="finalmessage hidden">Processing complete. Return <a href="/">home</a></div>
+    </div>
+  </div>
+
 {% endblock %}

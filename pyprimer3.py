@@ -647,7 +647,7 @@ def upload_file():
                 flash("Invalid filename. File extensions may include: %s."%
                     (", ".join(ALLOWED_EXTENSIONS)))
     # if not post, return index.html
-    return render_template('index.html')#,primerList=session['primerList'])
+    return render_template('index.html')
 # end of upload_file()
 
 if __name__ == "__main__":

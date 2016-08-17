@@ -1,19 +1,22 @@
 {% extends "layout.html" %}
 {% block body %}
-    <hr/>
-    <div class="pyprimer3">
+  <div class="tab-content">
+    <div class="tab-pane fade in active" id="primers">
         <h2>Primer Design</h2>
-        <br/>
         <form action="{{ url_for('upload_file') }}" method=post enctype=multipart/form-data>
+            <label><b>1. Select File</b></label>
+            <a href="#" data-toggle="tooltip" data-placement="right" title="Coming soon."><span class="glyphicon glyphicon-question-sign"></span></a>
+            <br/>
             <input type=file name=file><br/><br/>
             <hr/>
-            <label><b>Genome Assembly</b></label><br/>
-            <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
-            <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
-            <!--<img src="{{ url_for('static', filename='favicon.ico') }}" onclick=fade() /><br/>
-            <div class=options style="display:none;">-->
+            <label><b>2. Select Genome Assembly</b></label>
+            <a href="#" data-toggle="tooltip" data-placement="right" title="Coming soon."><span class="glyphicon glyphicon-question-sign"></span></a>
+            <br/>
+            <input type=radio name=db value=hg38 checked />&nbsp;Dec. 2013 (GRCh38/hg38)<br/>
+            <input type=radio name=db value=hg19 />&nbsp;Feb. 2009 (GRCh37/hg19)<br/>
             <hr/>
-            <label><b>Spreadsheet Columns</b></label>
+            <label><b>3. Select Spreadsheet Columns</b></label>
+            <a href="#" data-toggle="tooltip" data-placement="right" title="Coming soon."><span class="glyphicon glyphicon-question-sign"></span></a>
             <table>
                 <tr>
                     <td>Chromosome Column Name:</td>
@@ -29,7 +32,8 @@
                 </tr>
             </table>
             <hr/>
-            <label><b>Sequence Options</b></label>
+            <label><b>4. Select Sequence Options</b></label>
+            <a href="#" data-toggle="tooltip" data-placement="right" title="Coming soon."><span class="glyphicon glyphicon-question-sign"></span></a>
             <table>
                 <tr>
                     <td>Bracketed Sequence Length</td>
@@ -45,16 +49,17 @@
             <input type=submit value="Get Primers"/>
         </form>
     </div>
-    <br/>
+    <!--<br/>
     <hr/>
-    <br/>
-    <div class="splicesite">
+    <br/>-->
+    <!--<div class="splicesite" id="predictions">-->
+    <div class="tab-pane fade" id="predictions">
         <h2>Single Splice Site Prediction</h2>
         <br/>
         <form action=" {{ url_for('splice_site') }}" method=post>
             <label><b>Genome Assembly</b></label><br/>
-            <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
-            <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
+            <input type=radio name=db value=hg38 checked />&nbsp;Dec. 2013 (GRCh38/hg38)<br/>
+            <input type=radio name=db value=hg19 />&nbsp;Feb. 2009 (GRCh37/hg19)<br/>
             <hr/>
             <label><b>Variant Information</b></label>
             <table>
@@ -75,20 +80,19 @@
             <input type=submit value="Get Splice Site Predictions"/>
         </form>
     </div>
-    <br/>
+    <!--<br/>
     <hr/>
-    <br/>
-    <div class="multiplesites">
+    <br/>-->
+    <!--<div class="multiplesites">-->
+    <div class="tab-pane fade" id="multiplesites">
         <h2>Multiple Splice Site Predictions</h2>
         <br/>
         <form action="{{ url_for('multiple_sites') }}" method=post enctype=multipart/form-data>
             <input type=file name=file><br/><br/>
             <hr/>
             <label><b>Genome Assembly</b></label><br/>
-            <input type=radio name=db value=hg38 checked />Dec. 2013 (GRCh38/hg38)<br/>
-            <input type=radio name=db value=hg19 />Feb. 2009 (GRCh37/hg19)<br/>
-            <!--<img src="{{ url_for('static', filename='favicon.ico') }}" onclick=fade() /><br/>
-            <div class=options style="display:none;">-->
+            <input type=radio name=db value=hg38 checked />&nbsp;Dec. 2013 (GRCh38/hg38)<br/>
+            <input type=radio name=db value=hg19 />&nbsp;Feb. 2009 (GRCh37/hg19)<br/>
             <hr/>
             <label><b>Spreadsheet Columns</b></label>
             <table>
@@ -109,5 +113,5 @@
             <input type=submit value="Get Splice Site Predictions"/>
         </form>
     </div>
-
+  </div>
 {% endblock %}
